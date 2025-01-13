@@ -118,7 +118,9 @@ class LoRALinear(nn.Linear):
             if self.lora_use_mixer:
                 for i in range(self.mixer_num):
                     key = "lora_mixer_" + str(i)
-                    setattr(self, key, 
+                    setattr(
+                        self,
+                        key,
                         self.create_parameter(
                             shape=[r, r],
                             dtype=self._dtype,
@@ -126,8 +128,8 @@ class LoRALinear(nn.Linear):
                             default_initializer=nn.initializer.KaimingUniform(
                                 negative_slope=math.sqrt(5), nonlinearity="leaky_relu"
                             ),
-                        )
-                    )  
+                        ),
+                    )
             self.lora_B = self.create_parameter(
                 shape=[r, out_features],
                 dtype=self._dtype,
@@ -292,7 +294,9 @@ class LoRALinear(nn.Linear):
         else:
             result = F.linear(x=input, weight=self.weight, bias=self.bias, name=self.name)
             if self.lora_use_mixer:
-                result += (self.lora_dropout(input) @ self.lora_A @ self.get_mixer_params(0) @ self.lora_B) * self.scaling
+                result += (
+                    self.lora_dropout(input) @ self.lora_A @ self.get_mixer_params(0) @ self.lora_B
+                ) * self.scaling
             else:
                 result += (self.lora_dropout(input) @ self.lora_A @ self.lora_B) * self.scaling
         return result

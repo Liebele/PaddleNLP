@@ -513,7 +513,7 @@ def create_peft_model(model_args, reft_args, training_args, dtype, model_config,
                 use_quick_lora=model_args.use_quick_lora,
                 lora_use_mixer=model_args.lora_use_mixer,
                 use_mora=model_args.use_mora,
-                mixer_num = model_args.mixer_num,
+                mixer_num=model_args.mixer_num,
             )
             model = LoRAModel(model, lora_config)
         else:

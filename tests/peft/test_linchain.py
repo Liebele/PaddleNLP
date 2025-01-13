@@ -29,7 +29,9 @@ from paddlenlp.transformers import AutoModel, BertModel
 class TestLinChainLayer(unittest.TestCase):
     def test_r_raise_exception(self):
         with self.assertRaises(ValueError):
-            LoRALinear(in_features=16, out_features=8, r=0, lora_dropout=0.1, lora_alpha=8, lora_use_mixer=True, mixer_num=3)
+            LoRALinear(
+                in_features=16, out_features=8, r=0, lora_dropout=0.1, lora_alpha=8, lora_use_mixer=True, mixer_num=3
+            )
 
     def test_forward(self):
         lora_layer = LoRALinear(
@@ -178,7 +180,11 @@ class TestLinChainModel(unittest.TestCase):
         with TemporaryDirectory() as tempdir:
             input_ids = paddle.to_tensor(np.random.randint(100, 200, [1, 20]))
             lora_config = LoRAConfig(
-                target_modules=[".*q_proj.*", ".*v_proj.*"], r=4, lora_alpha=8, lora_use_mixer=True, mixer_num=3,
+                target_modules=[".*q_proj.*", ".*v_proj.*"],
+                r=4,
+                lora_alpha=8,
+                lora_use_mixer=True,
+                mixer_num=3,
             )
             model = AutoModel.from_pretrained("__internal_testing__/tiny-random-bert")
             lora_model = LoRAModel(model, lora_config)
@@ -198,7 +204,12 @@ class TestLinChainModel(unittest.TestCase):
 
     def test_lora_module_raise_exception(self):
         lora_config = LoRAConfig(
-            target_modules=[".*norm1.*"], r=4, lora_alpha=8, enable_lora_list=None, lora_use_mixer=True, mixer_num=3,
+            target_modules=[".*norm1.*"],
+            r=4,
+            lora_alpha=8,
+            enable_lora_list=None,
+            lora_use_mixer=True,
+            mixer_num=3,
         )
         model = AutoModel.from_pretrained("__internal_testing__/tiny-random-bert")
         with self.assertRaises(ValueError):
