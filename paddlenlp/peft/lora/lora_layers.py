@@ -219,7 +219,7 @@ class LoRALinear(nn.Linear):
         if self.lora_use_mixer:
             lora_A = lora_A if lora_A is not None else self.lora_A
             lora_B = lora_B if lora_B is not None else self.lora_B
-            lora_AB = lora_AB if lora_AB is not None else self.lora_AB
+            lora_AB = lora_AB if lora_AB is not None else self.get_mixer_params(0)
             delta_weight = lora_A @ lora_AB @ lora_B * self.scaling
         elif self.use_mora:
             lora_A = lora_A if lora_A is not None else self.lora_A
@@ -254,18 +254,25 @@ class LoRALinear(nn.Linear):
 
         return delta_weight
 
+    def get_mixer_params(self, index):
+        key = "lora_mixer_" + str(index)
+        if index == self.mixer_num - 1:
+            return getattr(self, key)
+        else:
+            return getattr(self, key) @ self.get_mixer_params(index + 1)
+
     def merge(self):
         if not self.merged:
             delta_weight = self.get_delta_weight()
             new_weight = self.weight + delta_weight
-            self.weight.set_value(new_weight)
+            self.weight.set_value(new_weight.astype(self.weight.dtype))
             self.merged = True
 
     def unmerge(self):
         if self.merged:
             delta_weight = self.get_delta_weight()
             new_weight = self.weight - delta_weight
-            self.weight.set_value(new_weight)
+            self.weight.set_value(new_weight.astype(self.weight.dtype))
             self.merged = False
 
     def forward(self, input: paddle.Tensor, *args, **kwargs):
