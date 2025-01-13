@@ -57,6 +57,8 @@ MAPPING_NAMES = OrderedDict(
         ("CTRL", "ctrl"),
         ("DistilBert", "distilbert"),
         ("DalleBart", "dallebart"),
+        ("DeepseekV2", "deepseek_v2"),
+        ("DeepseekV3", "deepseek_v3"),
         ("Electra", "electra"),
         ("ErnieViL", "ernie_vil"),
         ("ErnieCtm", "ernie_ctm"),
@@ -94,6 +96,7 @@ MAPPING_NAMES = OrderedDict(
         ("UNIMO", "unimo"),
         ("XLNet", "xlnet"),
         ("XLM", "xlm"),
+        ("XLMRoberta", "xlm_roberta"),
         ("GPT", "gpt"),
         ("GLM", "glm"),
         ("MT5", "mt5"),
@@ -830,10 +833,8 @@ class AutoInferenceModelForCausalLM(_BaseAutoModelClass):
                 )
         else:
             # Check whether the model use block attention
-            if predictor_args.block_attn and predictor_args.speculate_method is None:
+            if predictor_args.block_attn or predictor_args.speculate_method is not None:
                 attn_type = "Block"
-            elif predictor_args.speculate_method is not None:
-                attn_type = "Speculate"
             else:
                 attn_type = ""
             model_name = f"{config.architectures[0]}{attn_type}"

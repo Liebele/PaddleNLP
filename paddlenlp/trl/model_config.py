@@ -84,6 +84,9 @@ class ModelConfig:
         default=False, metadata={"help": "Whether to use MosLoRA: https://arxiv.org/pdf/2406.11909"}
     )
     mixer_num: int = field(default=1, metadata={"help": "Num of mixer matrices."})
+    use_mora: bool = field(
+        default=False, metadata={"help": "Whether to use MoRA: https://arxiv.org/pdf/2405.12130.pdf"}
+    )
 
     # vera related parameters
     vera: bool = field(default=False, metadata={"help": "Whether to use vera technique"})

@@ -13,7 +13,6 @@
 # limitations under the License.
 import argparse
 import copy
-import math
 import os
 
 import numpy as np
@@ -85,7 +84,9 @@ def get_mixer(mixer, mixer_num, index = 0):
     else:
         return mixer[index] @ get_mixer(mixer, mixer_num, index + 1)
 
-def lora_process(name, lora_config, state_dict, device, lora_state_dict=None):
+
+def lora_process(name, layer, lora_config, state_dict, device, lora_state_dict=None):
+
     target_device = device if device == "cpu" else device + ":0"
 
     if (name + ".weight") not in state_dict.keys():
@@ -93,47 +94,63 @@ def lora_process(name, lora_config, state_dict, device, lora_state_dict=None):
 
     weight = state_dict.pop(name + ".weight")
     lora_use_mixer = lora_config.lora_use_mixer
+
     mixer_num = lora_config.mixer_num
     mixer = {}
+    use_mora = lora_config.use_mora
+
     if lora_state_dict is None:
         lora_A = state_dict.pop(name + ".lora_A")
-        lora_B = state_dict.pop(name + ".lora_B")
+        if not use_mora:
+            lora_B = state_dict.pop(name + ".lora_B")
         if lora_use_mixer:
             for i in range(mixer_num):
                 mixer[i] = state_dict.pop(name + ".lora_mixer_" + str(i))
     else:
         lora_A = lora_state_dict.pop(name + ".lora_A")
-        lora_B = lora_state_dict.pop(name + ".lora_B")
+        if not use_mora:
+            lora_B = lora_state_dict.pop(name + ".lora_B")
         if lora_use_mixer:
             for i in range(mixer_num):
                 mixer[i] = state_dict.pop(name + ".lora_mixer_" + str(i))
     if device != "cpu":
         weight = weight.to(target_device)
         lora_A = lora_A.to(target_device)
-        lora_B = lora_B.to(target_device)
+        if not use_mora:
+            lora_B = lora_B.to(target_device)
         if lora_use_mixer:
             for key in mixer.keys():
                 mixer[key] = mixer[key].to(target_device)
+                
     if not lora_config.rslora:
         scaling = lora_config.lora_alpha / lora_config.r
     else:
         scaling = lora_config.lora_alpha / math.sqrt(lora_config.r)
 
+
     if device == "cpu" and weight.dtype.name == "BF16":
         weight = weight.astype("float32")
         lora_A = lora_A.astype("float32")
-        lora_B = lora_B.astype("float32")
+        if not use_mora:
+            lora_B = lora_B.astype("float32")
+
         if lora_use_mixer:
             for key in mixer.keys(): 
                 mixer[key] = mixer[key].astype(lora_config.dtype)
-            out = (weight + lora_A @ get_mixer(mixer, mixer_num) @ lora_B * scaling).astype(lora_config.dtype)
+            delta_weight = layer.get_delta_weight(lora_A, lora_B, get_mixer(mixer, mixer_num))
+        elif use_mora:
+            delta_weight = layer.get_delta_weight(lora_A)
         else:
-            out = (weight + lora_A @ lora_B * scaling).astype(lora_config.dtype)
+            delta_weight = layer.get_delta_weight(lora_A, lora_B)
+        out = (weight + delta_weight).astype(lora_config.dtype)
     else:
         if lora_use_mixer:
-            out = (weight + lora_A @ get_mixer(mixer, mixer_num) @ lora_B * scaling).cpu()
+            delta_weight = layer.get_delta_weight(lora_A, lora_B, get_mixer(mixer, mixer_num))
+        elif use_mora:
+            delta_weight = layer.get_delta_weight(lora_A)
         else:
-            out = (weight + lora_A @ lora_B * scaling).cpu()
+            delta_weight = layer.get_delta_weight(lora_A, lora_B)
+        out = (weight + delta_weight).cpu()
 
     state_dict[name + ".weight"] = out
 
@@ -232,12 +249,15 @@ def merge():
                 if isinstance(layer, paddle.nn.Linear) or isinstance(layer, QuantizationLinear):
                     weight_process(name, quant_config, lora_config, model_state_dict, args.device)
 
-        lora_name_list = []
-        for key in model_state_dict.keys():
-            if "lora_A" in key:
-                lora_name_list.append(key[:-7])
-        for name in lora_name_list:
-            lora_process(name, lora_config, model_state_dict, args.device)
+        lora_info = {}
+        for sublayer_name, sublayer in model.named_sublayers():
+            if isinstance(sublayer, paddle.nn.Linear):
+                for param_name, param in sublayer.named_parameters():
+                    if "lora_A" in param_name:
+                        lora_info[sublayer_name[6:]] = sublayer
+
+        for name, layer in lora_info.items():
+            lora_process(name, layer, lora_config, model_state_dict, args.device)
 
     logger.info("Begin to save merged model")
     if args.safe_serialization:
